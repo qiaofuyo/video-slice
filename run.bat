@@ -1,6 +1,6 @@
 @echo off
 REM 1. 启动你的服务器（在新窗口中）
-start cmd /k "node .\server.js"
+start cmd /k "node E:\下载\视频剪切\server.js"
 
 REM 2. 调用 PowerShell 脚本来检测端口
 echo Waiting for server to become available...
