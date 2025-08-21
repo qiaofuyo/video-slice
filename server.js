@@ -98,5 +98,4 @@ server.listen(PORT, () => {
   console.log(`Serving videos from: ${VIDEOS_DIR}  (URL prefix /videos)`);
 });
 // 怎么做到随意拖动进度条播放视频
-// 当前文件需高亮
 // 已添加的剪辑片段播放时只加载片段时间范围内的视频内容

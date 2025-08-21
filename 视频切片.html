@@ -33,6 +33,12 @@
     #drop-zone.drag-over { border-color:#3b82f6; background:#e0f2fe; }
     /* 确保 video 控件可交互 */
     #video-player { pointer-events: auto; display:block; width:100%; height:100%; }
+    
+    /* 新增：当前播放文件高亮样式 */
+    #file-list .playing {
+      background-color: #dbeafe; /* Tailwind blue-100 */
+      border-color: #60a5fa; /* Tailwind blue-400 */
+    }
   </style>
 </head>
 
@@ -60,10 +66,17 @@
             空格：播放/暂停 | 上：标记开始 | 下：标记结束 | ←/→：后退/前进（秒） | Ctrl+←/→：后退/前进（分钟）
           </p>
           <div class="flex flex-wrap items-center justify-center gap-4 mt-4">
-            <div class="flex items-center gap-2"><label>快进秒:</label><input id="fast-forward-seconds" type="number" value="20" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
-            <div class="flex items-center gap-2"><label>快退秒:</label><input id="fast-backward-seconds" type="number" value="10" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
-            <div class="flex items-center gap-2"><label>长快进(分):</label><input id="long-fast-forward-minutes" type="number" value="2" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+            <div class="flex items-center gap-2"><label>快退秒:</label><input id="fast-backward-seconds" type="number" value="5" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+            <div class="flex items-center gap-2"><label>快进秒:</label><input id="fast-forward-seconds" type="number" value="15" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
             <div class="flex items-center gap-2"><label>长快退(分):</label><input id="long-fast-backward-minutes" type="number" value="2" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+            <div class="flex items-center gap-2"><label>长快进(分):</label><input id="long-fast-forward-minutes" type="number" value="2" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+          </div>
+          <!-- 新增：可点击的快进快退按钮 -->
+          <div class="flex flex-wrap items-center justify-center gap-4 mt-2">
+            <button id="rewind-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-lg text-sm">快退秒</button>
+            <button id="forward-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-lg text-sm">快进秒</button>
+            <button id="long-rewind-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-lg text-sm">长快退(分)</button>
+            <button id="long-forward-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-lg text-sm">长快进(分)</button>
           </div>
         </div>
 
@@ -97,11 +110,11 @@
 
       <div class="mt-4 flex items-center gap-2">
         <label class="text-gray-800 font-bold">视频文件目录:</label>
-        <input id="video-source-path-input" type="text" placeholder="例如：C:\Users\YourName\Videos" class="flex-1 p-2 border rounded-md text-sm">
+        <input id="video-source-path-input" type="text" value="E:\下载" placeholder="例如：C:\Users\YourName\Videos" class="flex-1 p-2 border rounded-md text-sm">
       </div>
       <div class="mt-4 flex items-center gap-2">
         <label class="text-gray-800 font-bold">输出目录:</label>
-        <input id="output-path-input" type="text" value="E:\下载\截取" class="flex-1 p-2 border rounded-md text-sm">
+        <input id="output-path-input" type="text" value="E:\下载\截取" placeholder="例如：C:\Users\YourName\Videos" class="flex-1 p-2 border rounded-md text-sm">
       </div>
 
       <!-- 指令输出 -->
@@ -168,6 +181,12 @@
     const fastBackwardSecondsInput = document.getElementById('fast-backward-seconds');
     const longFastForwardMinutesInput = document.getElementById('long-fast-forward-minutes');
     const longFastBackwardMinutesInput = document.getElementById('long-fast-backward-minutes');
+    
+    // 新增：快进快退按钮引用
+    const rewindBtn = document.getElementById('rewind-btn');
+    const forwardBtn = document.getElementById('forward-btn');
+    const longRewindBtn = document.getElementById('long-rewind-btn');
+    const longForwardBtn = document.getElementById('long-forward-btn');
 
     const videoSourcePathInput = document.getElementById('video-source-path-input');
     const outputPathInput = document.getElementById('output-path-input');
@@ -228,6 +247,7 @@
       try { videoPlayer.removeAttribute('src'); videoPlayer.load(); } catch (e) {}
       currentFile = null;
       currentClipEndTime = null;
+      renderFileList(); // 更新：移除高亮
     }
 
     /******************************************************************
@@ -239,6 +259,7 @@
       // 先统一清理旧资源
       cleanupPlayer();
       currentFile = file;
+      renderFileList(); // 更新：设置高亮
       const ext = file.name.split('.').pop().toLowerCase();
 
       // 显示浮窗（由回调处理播放）
@@ -262,7 +283,7 @@
           }, {
             enableWorker: true,
             enableStashBuffer: true,
-            stashInitialSize: 384 *  1024 * 10,  // 指示 IO 存储缓冲区的初始大小
+            stashInitialSize: 384 * 1024 * 10,  // 指示 IO 存储缓冲区的初始大小
             lazyLoad: true,  // 如果有足够的数据可供播放，则中止 http 连接
             lazyLoadMaxDuration: 10 * 60,  // 懒加载
             lazyLoadRecoverDuration: 3 * 60,  // 恢复边界
@@ -317,6 +338,12 @@
       selectedFiles.forEach((file, idx) => {
         const div = document.createElement('div');
         div.className = 'flex items-center justify-between p-2 bg-gray-100 rounded-lg border border-gray-200';
+        
+        // 更新：检查是否为当前播放文件，如果是则添加高亮 class
+        if (currentFile && file.name === currentFile.name && file.size === currentFile.size) {
+          div.classList.add('playing');
+        }
+
         div.innerHTML = `
           <span class="font-semibold text-gray-800 break-words">${file.name}</span>
           <div class="flex gap-2">
@@ -611,9 +638,50 @@
     });
 
     /******************************************************************
+     * 新增：为快进/快退按钮添加事件监听
+     ******************************************************************/
+    function seekVideo(seconds) {
+      if (!videoPlayer.src || isNaN(videoPlayer.duration)) {
+        showMessage('请先播放一个视频');
+        return;
+      }
+      const newTime = videoPlayer.currentTime + seconds;
+      videoPlayer.currentTime = Math.max(0, Math.min(newTime, videoPlayer.duration));
+      const direction = seconds > 0 ? '前进' : '后退';
+      const unit = Math.abs(seconds) >= 60 ? '分钟' : '秒';
+      const amount = Math.abs(seconds) >= 60 ? Math.abs(seconds) / 60 : Math.abs(seconds);
+      showMessage(`${direction} ${amount} ${unit}`);
+    }
+
+    forwardBtn.addEventListener('click', () => {
+      const seconds = parseFloat(fastForwardSecondsInput.value) || 15;
+      seekVideo(seconds);
+    });
+
+    rewindBtn.addEventListener('click', () => {
+      const seconds = parseFloat(fastBackwardSecondsInput.value) || 5;
+      seekVideo(-seconds);
+    });
+
+    longForwardBtn.addEventListener('click', () => {
+      const minutes = parseFloat(longFastForwardMinutesInput.value) || 2;
+      seekVideo(minutes * 60);
+    });
+
+    longRewindBtn.addEventListener('click', () => {
+      const minutes = parseFloat(longFastBackwardMinutesInput.value) || 2;
+      seekVideo(-minutes * 60);
+    });
+
+    /******************************************************************
      * 全局键盘（合并：支持 Escape、空格、方向键与标记快捷键）
      ******************************************************************/
     document.addEventListener('keydown', (e) => {
+      // 当焦点在输入框时，不触发快捷键，以免影响正常输入
+      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+        return;
+      }
+
       // Escape 始终关闭浮窗（如果可见）
       if (e.key === 'Escape' && !videoFloatWindow.classList.contains('hidden')) {
         stopAndHidePlayer(); return;
@@ -628,18 +696,17 @@
         return;
       }
 
-      const ffSec = parseFloat(fastForwardSecondsInput.value) || 20;
-      const fbSec = parseFloat(fastBackwardSecondsInput.value) || 10;
+      const ffSec = parseFloat(fastForwardSecondsInput.value) || 15;
+      const fbSec = parseFloat(fastBackwardSecondsInput.value) || 5;
       const longFfMin = parseFloat(longFastForwardMinutesInput.value) || 2;
       const longFbMin = parseFloat(longFastBackwardMinutesInput.value) || 2;
-      const cur = videoPlayer.currentTime;
 
       if (e.ctrlKey) {
-        if (e.key === 'ArrowRight') { e.preventDefault(); videoPlayer.currentTime = cur + (longFfMin * 60); showMessage(`前进 ${longFfMin} 分钟`); }
-        if (e.key === 'ArrowLeft')  { e.preventDefault(); videoPlayer.currentTime = Math.max(0, cur - (longFbMin * 60)); showMessage(`后退 ${longFbMin} 分钟`); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); seekVideo(longFfMin * 60); }
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); seekVideo(-longFbMin * 60); }
       } else {
-        if (e.key === 'ArrowRight') { e.preventDefault(); videoPlayer.currentTime = cur + ffSec; showMessage(`前进 ${ffSec} 秒`); }
-        if (e.key === 'ArrowLeft')  { e.preventDefault(); videoPlayer.currentTime = Math.max(0, cur - fbSec); showMessage(`后退 ${fbSec} 秒`); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); seekVideo(ffSec); }
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); seekVideo(-fbSec); }
       }
 
       if (e.key === 'ArrowUp')    { e.preventDefault(); markStartBtn.click(); }
