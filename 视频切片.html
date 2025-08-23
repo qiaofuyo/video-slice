@@ -398,8 +398,16 @@
      ******************************************************************/
     function playSelectedFile(file) {
       if (!file) return;
+
+      // 尝试加载上次保存的状态
+      const stateLoaded = loadPlayerState();
+
       loadFile(file, () => {
-        setInitialVideoSizeAndCenter(videoPlayer.videoWidth || initialVideoWidth, videoPlayer.videoHeight || initialVideoHeight);
+        // 如果没有加载到状态，则使用默认大小和居中
+        if (!stateLoaded) {
+          setInitialVideoSizeAndCenter(videoPlayer.videoWidth || initialVideoWidth, videoPlayer.videoHeight || initialVideoHeight);
+        }
+
         showMessage(`正在播放: ${currentFile.name}`);
         videoPlayer.play().catch(()=>{});
       });
@@ -410,7 +418,33 @@
       videoFloatWindow.classList.add('hidden');
       try { videoPlayer.pause(); } catch (e) {}
       try { videoPlayer.currentTime = 0; } catch(e){}
+      savePlayerState();
       cleanupPlayer();
+    }
+
+    // 加载播放器状态
+    function loadPlayerState() {
+      const savedState = sessionStorage.getItem('videoPlayerState');
+      if (savedState) {
+        const state = JSON.parse(savedState);
+        videoFloatWindow.style.width = state.width;
+        videoFloatWindow.style.height = state.height;
+        videoFloatWindow.style.left = state.left;
+        videoFloatWindow.style.top = state.top;
+        return true; // 表示已成功加载状态
+      }
+      return false; // 表示没有保存的状态
+    }
+
+    // 保存播放器状态到本地
+    function savePlayerState() {
+      const playerState = {
+        width: videoFloatWindow.style.width,
+        height: videoFloatWindow.style.height,
+        left: videoFloatWindow.style.left,
+        top: videoFloatWindow.style.top
+      };
+      sessionStorage.setItem('videoPlayerState', JSON.stringify(playerState));
     }
 
     /******************************************************************
@@ -422,8 +456,8 @@
       initialVideoHeight = videoHeight;
 
       const aspect = videoWidth / videoHeight;
-      const maxW = window.innerWidth * 0.8;
-      const maxH = window.innerHeight * 0.8;
+      const maxW = window.innerWidth * 1;  // 默认宽高
+      const maxH = window.innerHeight * 1;
       let w = videoWidth, h = videoHeight;
       if (w > maxW) { w = maxW; h = w / aspect; }
       if (h > maxH) { h = maxH; w = h * aspect; }
@@ -431,6 +465,19 @@
       videoFloatWindow.style.width = `${w}px`;
       videoFloatWindow.style.height = `${h}px`;
       centerVideoWindow();
+      savePlayerState();
+    }
+
+    // 添加通用的防抖函数
+    function debounce(func, delay) {
+      let timer;
+      return function(...args) {
+        const context = this;
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          func.apply(context, args);
+        }, delay);
+      };
     }
 
     function centerVideoWindow() {
@@ -440,7 +487,7 @@
       videoFloatWindow.style.left = `${(ww - ew) / 2}px`;
       videoFloatWindow.style.top = `${(wh - eh) / 2}px`;
     }
-    window.addEventListener('resize', centerVideoWindow);
+    window.addEventListener('resize', debounce(centerVideoWindow, 150));
 
     /******************************************************************
      * 标记 / 添加片段
@@ -788,47 +835,135 @@
     /******************************************************************
      * 浮窗拖拽与缩放（简单实现）
      ******************************************************************/
+    // ---------- 通用交互启动器：防重复绑定 + 统一清理 ----------
+    function startInteraction(kind, opts) {
+      // kind: 字符串，仅用于可读性（'drag' / 'resize'）
+      // opts: { onMove: function(ev), minSize?: number }
+      if (videoFloatWindow.dataset.interacting === '1') return null;
+      videoFloatWindow.dataset.interacting = '1';
+      document.body.style.userSelect = 'none';
+
+      const onMove = typeof opts.onMove === 'function' ? opts.onMove : () => {};
+      // 包装一下 move 处理器，确保引用一致，便于移除
+      const moveHandler = (e) => onMove(e);
+
+      const upHandler = () => cleanup();
+
+      function cleanup() {
+        window.removeEventListener('mousemove', moveHandler);
+        window.removeEventListener('mouseup', upHandler);
+        window.removeEventListener('blur', upHandler);
+        document.body.style.userSelect = '';
+        videoFloatWindow.dataset.interacting = '0';
+
+        savePlayerState();
+      }
+
+      // 绑定到 window（保证在鼠标快速移出元素时仍接收到事件）
+      window.addEventListener('mousemove', moveHandler);
+      window.addEventListener('mouseup', upHandler);
+      window.addEventListener('blur', upHandler);
+
+      // 返回清理函数，若调用方想要在特定时机主动结束也可以调用
+      return cleanup;
+    }
+
+    // ---------- 改进后的拖拽（使用通用启动器） ----------
     dragHandle.addEventListener('mousedown', (e) => {
       e.preventDefault();
       if (e.button !== 0) return;
-      const startX = e.clientX, startY = e.clientY;
+
       const rect = videoFloatWindow.getBoundingClientRect();
-      const left0 = rect.left, top0 = rect.top;
-      document.body.style.userSelect = 'none';
-      function onMove(ev) {
-        videoFloatWindow.style.left = `${left0 + (ev.clientX - startX)}px`;
-        videoFloatWindow.style.top = `${top0 + (ev.clientY - startY)}px`;
-      }
-      function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.body.style.userSelect = ''; }
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const initLeft = rect.left;
+      const initTop = rect.top;
+      const width = rect.width;
+      const height = rect.height;
+
+      // 启动交互（kind 仅做可读性标注）
+      const cleanup = startInteraction('drag', {
+        onMove: (ev) => {
+          const dx = ev.clientX - startX;
+          const dy = ev.clientY - startY;
+
+          let newLeft = initLeft + dx;
+          let newTop = initTop + dy;
+
+          // 视口边界检查：保持整个浮窗可见
+          const maxLeft = Math.max(0, window.innerWidth - width);
+          const maxTop = Math.max(0, window.innerHeight - height);
+
+          if (newLeft < 0) newLeft = 0;
+          if (newTop < 0) newTop = 0;
+          if (newLeft > maxLeft) newLeft = maxLeft;
+          if (newTop > maxTop) newTop = maxTop;
+
+          videoFloatWindow.style.left = `${Math.round(newLeft)}px`;
+          videoFloatWindow.style.top = `${Math.round(newTop)}px`;
+        }
+      });
+
+      // 如果无法开始交互（已有会话），忽略
+      if (!cleanup) return;
     });
 
+    // ---------- 改进后的缩放（使用通用启动器） ----------
     resizeHandle.addEventListener('mousedown', (e) => {
       e.preventDefault();
       if (e.button !== 0) return;
+
       const startX = e.clientX;
       const rect = videoFloatWindow.getBoundingClientRect();
-      const initW = rect.width, initH = rect.height;
-      const aspect = initW / initH;
-      document.body.style.userSelect = 'none';
-      function onMove(ev) {
-        const dx = ev.clientX - startX;
-        let newW = initW + dx;
-        let newH = newW / aspect;
-        const minSize = 200;
-        if (newW < minSize) { newW = minSize; newH = newW / aspect; }
-        const left = parseFloat(videoFloatWindow.style.left) || 0;
-        const top = parseFloat(videoFloatWindow.style.top) || 0;
-        if (left + newW > window.innerWidth) newW = window.innerWidth - left;
-        if (top + newH > window.innerHeight) newH = window.innerHeight - top;
-        videoFloatWindow.style.width = `${newW}px`;
-        videoFloatWindow.style.height = `${newH}px`;
-      }
-      function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.body.style.userSelect = ''; }
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      const initW = rect.width;
+      const initH = rect.height;
+      const left0 = rect.left;
+      const top0 = rect.top;
+
+      // 尝试使用视频真实尺寸计算纵横比；若无则用当前 DOM 宽高比
+      const aspect = (videoPlayer && videoPlayer.videoWidth && videoPlayer.videoHeight)
+        ? (videoPlayer.videoWidth / videoPlayer.videoHeight)
+        : (initW / initH);
+
+      const minSize = 200; // 最小像素阈值（如需可改成 minWidth/minHeight）
+
+      const cleanup = startInteraction('resize', {
+        onMove: (ev) => {
+          const dx = ev.clientX - startX;
+          let newW = Math.max(minSize, initW + dx);
+          let newH = newW / aspect;
+
+          // 视口边界（以左上角 left0/top0 为基准）
+          const maxW = Math.max(0, window.innerWidth - left0);
+          const maxH = Math.max(0, window.innerHeight - top0);
+
+          if (newW > maxW) {
+            newW = maxW;
+            newH = newW / aspect;
+          }
+
+          if (newH > maxH) {
+            newH = maxH;
+            newW = newH * aspect;
+            if (newW < minSize) {
+              newW = minSize;
+              newH = newW / aspect;
+            }
+          }
+
+          if (newH < minSize) {
+            newH = minSize;
+            newW = newH * aspect;
+          }
+
+          videoFloatWindow.style.width = `${Math.round(newW)}px`;
+          videoFloatWindow.style.height = `${Math.round(newH)}px`;
+        }
+      });
+
+      if (!cleanup) return;
     });
+
 
     // 关闭/恢复按钮
     closeFloatBtn.addEventListener('click', stopAndHidePlayer);
