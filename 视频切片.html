@@ -99,6 +99,18 @@
       <!-- 剪辑片段列表 -->
       <div id="clips-list-section" class="mb-6 hidden">
         <h2 class="text-xl font-bold text-gray-800 mb-4">已添加的剪辑片段</h2>
+
+        <!-- 主播名输入 -->
+        <div class="flex items-center gap-3 mb-4">
+          <label for="hostNameInput" class="text-gray-700 font-medium">主播名：</label>
+          <input id="hostNameInput"
+                type="text"
+                placeholder="填写主播名（例如：荔枝甜心）"
+                aria-label="主播名"
+                class="p-2 border rounded-md text-sm w-64"
+          />
+        </div>
+
         <div id="added-clips-list" class="space-y-2"></div>
       </div>
 
@@ -215,6 +227,11 @@
       const sec = parseInt(padded.slice(-2), 10);
       return h * 3600 + m * 60 + sec;
     }
+
+    // 2) 新增：添加片段命名所需辅助函数
+    function basenameNoExt(name){ return (name || '').replace(/\.[^/.]+$/, ''); }
+    function pad(n){ return n<10? '0'+n : ''+n; }
+    function formatDateYYYYMMDD(ms){ var d = (typeof ms === 'number') ? new Date(ms) : new Date(ms); return ''+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate()); }
 
     /******************************************************************
      * 辅助：安全创建并管理 Object URL
@@ -444,7 +461,7 @@
       showMessage('已标记结束时间');
     });
 
-    // 添加片段（从手动输入或标记读取时间）
+    // 2) 在“添加片段”的逻辑处：改为规则命名并保存元数据
     addClipBtn.addEventListener('click', () => {
       if (!currentFile) { showMessage('请先选择视频文件'); return; }
       const startSec = parseTime(manualStartTimeInput.value);
@@ -452,14 +469,52 @@
       if (startSec === null || endSec === null) { showMessage('请先标记或输入开始/结束时间'); return; }
       if (startSec >= endSec) { showMessage('结束时间必须晚于开始时间'); return; }
 
-      const newIndex = clips.length + 1;
-      const outName = `${newIndex}.mp4`;
+      // helper
+      // (已在全局定义：basenameNoExt / pad / formatDateYYYYMMDD)
+
+      // derive host (fallback from filename)
+      var host='unknown';
+      try { var base = basenameNoExt(currentFile.name); host = base.split('_')[0] || base; host = host.replace(/[\/\\:\*\?"<>\|]/g,'_'); } catch(e){ host='unknown'; }
+
+      // prefer UI input
+      var hostInputEl = document.getElementById('hostNameInput');
+      var hostUsed = host;
+      if (hostInputEl && hostInputEl.value && hostInputEl.value.trim() !== '') {
+        hostUsed = hostInputEl.value.trim().replace(/[\/\\:\*\?"<>\|]/g,'_');
+      }
+
+      // file date from metadata
+      var fileDate = '00000000';
+      try {
+        if (currentFile && currentFile.lastModified) fileDate = formatDateYYYYMMDD(currentFile.lastModified);
+        else fileDate = formatDateYYYYMMDD(Date.now());
+      } catch(e) { fileDate = formatDateYYYYMMDD(Date.now()); }
+
+      // index: count existing clips from same file
+      var sameCount = 0;
+      if (Array.isArray(clips)) {
+        for (var i=0;i<clips.length;i++){
+          var c = clips[i];
+          var src = c.fileName || c.inputFileName || c.sourceFileName || '';
+          if (!src && c.file && c.file.name) src = c.file.name;
+          if (src && currentFile && src === currentFile.name) sameCount++;
+        }
+      }
+      var index = sameCount + 1;
+      var outName = hostUsed + '_' + fileDate + '_' + index + '.mp4';
+      window.__lastGeneratedHost = hostUsed;
+      window.__lastGeneratedFileDate = fileDate;
+
+      // 3) push 时保存更多字段
       clips.push({
         fileName: currentFile.name,
         startTime: formatTime(startSec),
         endTime: formatTime(endSec),
         outputFileName: outName,
-        originalFileSize: currentFile.size
+        host: (window.__lastGeneratedHost !== undefined) ? window.__lastGeneratedHost : hostUsed,
+        fileDate: (window.__lastGeneratedFileDate !== undefined) ? window.__lastGeneratedFileDate : fileDate,
+        originalFileSize: currentFile.size,
+        originalFileLastModified: currentFile.lastModified || null
       });
 
       // 清空临时标记输入
@@ -494,7 +549,7 @@
             <span class="text-sm text-gray-600">${clip.startTime} - ${clip.endTime}</span>
             <div class="flex items-center gap-2">
               <label class="text-xs">输出名称:</label>
-              <input class="output-name" data-index="${i}" value="${nameWithoutExt}" style="width:120px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+              <input class="output-name" data-index="${i}" value="${nameWithoutExt}" style="width:220px;padding:4px;border:1px solid #ddd;border-radius:4px;">
               <span>.</span>
               <input class="output-ext" data-index="${i}" value="${ext}" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
             </div>
@@ -506,6 +561,21 @@
         `;
         addedClipsList.appendChild(item);
       });
+    }
+
+    // 4) 新增自动重编号函数
+    function renumberIndicesForSource(sourceFileName) {
+      if (!sourceFileName) return;
+      var count = 0;
+      for (var i = 0; i < clips.length; i++) {
+        var clip = clips[i];
+        if (clip.fileName === sourceFileName) {
+          count++;
+          var h = clip.host || (document.getElementById('hostNameInput') ? document.getElementById('hostNameInput').value.trim().replace(/[\/\\:\*\?"<>\|]/g,'_') : (clip.fileName ? clip.fileName.split('_')[0] : 'unknown'));
+          var fd = clip.fileDate || (clip.originalFileLastModified ? (function(d){ var D=new Date(d); function pad(n){return n<10?'0'+n:''+n;} return ''+D.getFullYear()+pad(D.getMonth()+1)+pad(D.getDate()); })(clip.originalFileLastModified) : (clip.fileDate || '00000000'));
+          clip.outputFileName = h + '_' + fd + '_' + count + '.mp4';
+        }
+      }
     }
 
     /******************************************************************
@@ -557,7 +627,9 @@
       }
       if (delBtn) {
         const idx = parseInt(delBtn.dataset.index, 10);
-        clips.splice(idx, 1);
+        // 5) 删除时先 splice 并保存 removed，然后调用 renumber 再 render
+        var removed = clips.splice(idx, 1)[0];
+        if (removed && removed.fileName) renumberIndicesForSource(removed.fileName);
         renderClipsList();
         showMessage('已删除片段');
       }
