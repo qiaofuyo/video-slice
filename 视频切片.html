@@ -97,7 +97,10 @@
 
       <!-- 剪辑片段列表 -->
       <div id="clips-list-section" class="mb-6 hidden">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">已添加的剪辑片段</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-gray-800">已添加的剪辑片段</h2>
+          <button id="clear-all-clips-btn" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-sm">清除所有片段</button>
+        </div>
         <div id="added-clips-list" class="space-y-2"></div>
       </div>
 
@@ -191,6 +194,9 @@
 
     const manualStartTimeInput = document.getElementById('manual-start-time');
     const manualEndTimeInput = document.getElementById('manual-end-time');
+
+    // 新增：清除所有片段按钮引用
+    const clearAllClipsBtn = document.getElementById('clear-all-clips-btn');
 
     /******************************************************************
      * 时间格式化与解析辅助函数
@@ -965,6 +971,13 @@
         messageBox.classList.add('opacity-0');
       }, 2500);
     }
+
+    // 清除所有片段按钮处理
+    clearAllClipsBtn.addEventListener('click', () => {
+      clips = [];
+      renderClipsList();
+      showMessage('已清除所有片段');
+    });
 
     // 页面加载时的初始渲染
     renderFileList();
