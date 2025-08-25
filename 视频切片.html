@@ -498,7 +498,7 @@
       showMessage('已标记结束时间');
     });
 
-    // 2) 在“添加片段”的逻辑处：改为规则命名并保存元数据
+    // 2) 添加片段
     addClipBtn.addEventListener('click', () => {
       if (!currentFile) { showMessage('请先选择视频文件'); return; }
       const startSec = parseTime(manualStartTimeInput.value);
@@ -506,50 +506,36 @@
       if (startSec === null || endSec === null) { showMessage('请先标记或输入开始/结束时间'); return; }
       if (startSec >= endSec) { showMessage('结束时间必须晚于开始时间'); return; }
 
-      // helper
-      // (已在全局定义：basenameNoExt / pad / formatDateYYYYMMDD)
-
-      // derive host (fallback from filename)
-      var host='unknown';
-      try { var base = basenameNoExt(currentFile.name); host = base.split('_')[0] || base; host = host.replace(/[\/\\:\*\?"<>\|]/g,'_'); } catch(e){ host='unknown'; }
+      // derive outputHost (fallback from filename)
+      let outputHost='unknown';
+      try { let base = basenameNoExt(currentFile.name); outputHost = base.split('_')[0] || base; outputHost = outputHost.replace(/[\/\\:\*\?"<>\|]/g,'_'); } catch(e){ outputHost='unknown'; }
 
       // prefer UI input
-      var hostInputEl = document.getElementById('hostNameInput');
-      var hostUsed = host;
+      let hostInputEl = document.getElementById('hostNameInput');
       if (hostInputEl && hostInputEl.value && hostInputEl.value.trim() !== '') {
-        hostUsed = hostInputEl.value.trim().replace(/[\/\\:\*\?"<>\|]/g,'_');
+        outputHost = hostInputEl.value.trim().replace(/[\/\\:\*\?"<>\|]/g,'_');
       }
 
       // file date from metadata
-      var fileDate = '00000000';
+      let fileDate = '00000000';
       try {
         if (currentFile && currentFile.lastModified) fileDate = formatDateYYYYMMDD(currentFile.lastModified);
         else fileDate = formatDateYYYYMMDD(Date.now());
       } catch(e) { fileDate = formatDateYYYYMMDD(Date.now()); }
 
-      // index: count existing clips from same file
-      var sameCount = 0;
-      if (Array.isArray(clips)) {
-        for (var i=0;i<clips.length;i++){
-          var c = clips[i];
-          var src = c.fileName || c.inputFileName || c.sourceFileName || '';
-          if (!src && c.file && c.file.name) src = c.file.name;
-          if (src && currentFile && src === currentFile.name) sameCount++;
-        }
-      }
-      var index = sameCount + 1;
-      var outName = hostUsed + '_' + fileDate + '_' + index + '.mp4';
-      window.__lastGeneratedHost = hostUsed;
-      window.__lastGeneratedFileDate = fileDate;
+      let idx = getNextIndexForHostDate(outputHost, fileDate)
+      let ext = 'mp4'
+      let outputName = outputHost + '_' + fileDate + '_' + idx + '.' + ext;
 
-      // 3) push 时保存更多字段
       clips.push({
         fileName: currentFile.name,
         startTime: formatTime(startSec),
         endTime: formatTime(endSec),
-        outputFileName: outName,
-        host: (window.__lastGeneratedHost !== undefined) ? window.__lastGeneratedHost : hostUsed,
-        fileDate: (window.__lastGeneratedFileDate !== undefined) ? window.__lastGeneratedFileDate : fileDate,
+        outputFileName: outputName,
+        idx,
+        ext,
+        outputHost,
+        fileDate,
         originalFileSize: currentFile.size,
         originalFileLastModified: currentFile.lastModified || null
       });
@@ -575,9 +561,6 @@
       clipsListSection.classList.remove('hidden');
 
       clips.forEach((clip, i) => {
-        const parts = clip.outputFileName.split('.');
-        const nameWithoutExt = parts.slice(0, -1).join('.');
-        const ext = parts[parts.length - 1];
         const item = document.createElement('div');
         item.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
         item.innerHTML = `
@@ -586,9 +569,9 @@
             <span class="text-sm text-gray-600">${clip.startTime} - ${clip.endTime}</span>
             <div class="flex items-center gap-2">
               <label class="text-xs">输出名称:</label>
-              <input class="output-name" data-index="${i}" value="${nameWithoutExt}" style="width:220px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+              <input class="output-name" data-index="${i}" value="${clip.outputFileName}" style="width:220px;padding:4px;border:1px solid #ddd;border-radius:4px;">
               <span>.</span>
-              <input class="output-ext" data-index="${i}" value="${ext}" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+              <input class="output-ext" data-index="${i}" value="${clip.ext}" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
             </div>
           </div>
           <div class="flex gap-2">
@@ -600,19 +583,16 @@
       });
     }
 
-    // 4) 新增自动重编号函数
-    function renumberIndicesForSource(sourceFileName) {
-      if (!sourceFileName) return;
-      var count = 0;
-      for (var i = 0; i < clips.length; i++) {
-        var clip = clips[i];
-        if (clip.fileName === sourceFileName) {
-          count++;
-          var h = clip.host || (document.getElementById('hostNameInput') ? document.getElementById('hostNameInput').value.trim().replace(/[\/\\:\*\?"<>\|]/g,'_') : (clip.fileName ? clip.fileName.split('_')[0] : 'unknown'));
-          var fd = clip.fileDate || (clip.originalFileLastModified ? (function(d){ var D=new Date(d); function pad(n){return n<10?'0'+n:''+n;} return ''+D.getFullYear()+pad(D.getMonth()+1)+pad(D.getDate()); })(clip.originalFileLastModified) : (clip.fileDate || '00000000'));
-          clip.outputFileName = h + '_' + fd + '_' + count + '.mp4';
+    // 4) 按 outputHost + fileDate 计算下一个序号
+    function getNextIndexForHostDate(outputHost, fileDate) {
+      let sameCount = 0;
+      if (Array.isArray(clips)) {
+        for (let i=0;i<clips.length;i++){
+          let c = clips[i];
+          if (c && c.outputHost === outputHost && c.fileDate === fileDate) sameCount++;
         }
       }
+      return ++sameCount
     }
 
     /******************************************************************
@@ -665,8 +645,15 @@
       if (delBtn) {
         const idx = parseInt(delBtn.dataset.index, 10);
         // 5) 删除时先 splice 并保存 removed，然后调用 renumber 再 render
-        var removed = clips.splice(idx, 1)[0];
-        if (removed && removed.fileName) renumberIndicesForSource(removed.fileName);
+        let removed = clips.splice(idx, 1)[0];
+        // 更新 clips
+        for (let index = idx; index < clips.length; index++) {
+          let clip = clips[index];
+          if (removed.outputHost === clip.outputHost && removed.fileDate === clip.fileDate) {
+            clip.idx--;
+            clip.outputFileName = clip.outputHost + '_' + clip.fileDate + '_' + clip.idx + '.' + clip.ext;
+          }
+        }
         renderClipsList();
         showMessage('已删除片段');
       }
@@ -978,10 +965,6 @@
       renderClipsList();
       showMessage('已清除所有片段');
     });
-
-    // 页面加载时的初始渲染
-    renderFileList();
-    renderClipsList();
   </script>
 </body>
 </html>
