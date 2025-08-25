@@ -16,16 +16,16 @@
     /* 浮动视频窗口 */
     #video-float-window {
       position: fixed;
-      z-index: 50;
+      z-index: 10;
       pointer-events: none; /* 默认穿透（只有控件可交互） */
       transition: opacity .2s;
       resize: both;
       overflow: hidden;
     }
     /* 手柄与控件需要可交互 */
-    #drag-handle { position:absolute; top:0; left:0; width:100%; height:90%; cursor:move; z-index:52; pointer-events:auto; background:transparent; }
-    #resize-handle { position:absolute; bottom:0; right:0; width:20px; height:20px; cursor:se-resize; z-index:54; pointer-events:auto; background:rgba(0,0,0,.4); border-radius:4px 0 4px 0; }
-    .control-btn { position:absolute; top:5px; z-index:53; pointer-events:auto; text-shadow:0 0 5px rgba(0,0,0,.5); }
+    #drag-handle { position:absolute; top:0; left:0; width:100%; height:90%; cursor:move; z-index:12; pointer-events:auto; background:transparent; }
+    #resize-handle { position:absolute; bottom:0; right:0; width:20px; height:20px; cursor:se-resize; z-index:14; pointer-events:auto; background:rgba(0,0,0,.4); border-radius:4px 0 4px 0; }
+    .control-btn { position:absolute; top:5px; z-index:13; pointer-events:auto; text-shadow:0 0 5px rgba(0,0,0,.5); }
     #close-float-btn { right:5px; }
 
     /* 拖拽高亮 */
@@ -525,17 +525,19 @@
 
       let idx = getNextIndexForHostDate(outputHost, fileDate)
       let ext = 'mp4'
-      let outputName = outputHost + '_' + fileDate + '_' + idx + '.' + ext;
+      let clipName = outputHost + '_' + fileDate + '_' + idx;
+      let outputFileName = clipName + '.' + ext;
 
       clips.push({
         fileName: currentFile.name,
         startTime: formatTime(startSec),
         endTime: formatTime(endSec),
-        outputFileName: outputName,
-        idx,
-        ext,
         outputHost,
         fileDate,
+        idx,
+        clipName,
+        ext,
+        outputFileName,
         originalFileSize: currentFile.size,
         originalFileLastModified: currentFile.lastModified || null
       });
@@ -569,7 +571,7 @@
             <span class="text-sm text-gray-600">${clip.startTime} - ${clip.endTime}</span>
             <div class="flex items-center gap-2">
               <label class="text-xs">输出名称:</label>
-              <input class="output-name" data-index="${i}" value="${clip.outputFileName}" style="width:220px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+              <input class="output-name" data-index="${i}" value="${clip.clipName}" style="width:220px;padding:4px;border:1px solid #ddd;border-radius:4px;">
               <span>.</span>
               <input class="output-ext" data-index="${i}" value="${clip.ext}" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
             </div>
@@ -651,7 +653,7 @@
           let clip = clips[index];
           if (removed.outputHost === clip.outputHost && removed.fileDate === clip.fileDate) {
             clip.idx--;
-            clip.outputFileName = clip.outputHost + '_' + clip.fileDate + '_' + clip.idx + '.' + clip.ext;
+            clip.clipName = clip.outputHost + '_' + clip.fileDate + '_' + clip.idx;
           }
         }
         renderClipsList();
