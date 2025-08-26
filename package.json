@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "ultracite": "^5.2.4"
+  }
+}
