@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>视频切片指令生成器</title>
+
+  <!-- Tailwind CSS（快速布局） -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- mpegts.js（用于播放 flv/ts/m2ts 等） -->
+  <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js" defer></script>
+
+  <!-- 本地样式 -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="bg-gray-100">
+  <div class="flex flex-col h-screen p-8 space-y-8 overflow-y-auto">
+    <div class="bg-white rounded-xl shadow-2xl p-8 w-full">
+      <h1 class="text-3xl font-bold text-center mb-2 text-gray-800">视频剪辑指令生成器</h1>
+      <p class="text-center text-gray-500 mb-6">选择视频文件 → 标记时间点 → 生成 FFmpeg 指令</p>
+
+      <!-- 文件选择 / 拖拽区 -->
+      <div id="drop-zone" class="mb-6 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition-colors duration-200">
+        <p class="text-gray-500 mb-4">将视频拖拽到此处，或</p>
+        <label for="file-input" class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg">选择视频文件</label>
+        <input id="file-input" class="hidden" type="file" accept="video/*" multiple>
+        <div id="file-list" class="mt-4 space-y-2"></div>
+      </div>
+
+      <!-- 播放与标记区域（默认隐藏，选中文件后显示） -->
+      <div id="video-player-section" class="mb-6 hidden">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">视频播放与标记</h2>
+
+        <!-- 快捷键与秒/分钟设定 -->
+        <div class="mt-4 text-center text-gray-600">
+          <p class="text-sm font-semibold">
+            空格：播放/暂停 | ↑：标记开始 | ↓：标记结束 | ←/→：后退/前进（秒） | Ctrl+←/→：后退/前进（分钟）
+          </p>
+          <div class="flex flex-wrap items-center justify-center gap-4 mt-4">
+            <div class="flex items-center gap-2"><label>快退秒:</label><input id="fast-backward-seconds" type="number" value="5" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+            <div class="flex items-center gap-2"><label>快进秒:</label><input id="fast-forward-seconds" type="number" value="15" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+            <div class="flex items-center gap-2"><label>长快退(分):</label><input id="long-fast-backward-minutes" type="number" value="1" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+            <div class="flex items-center gap-2"><label>长快进(分):</label><input id="long-fast-forward-minutes" type="number" value="1" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+          </div>
+          <!-- 新增：可点击的快进快退按钮 -->
+          <div class="flex flex-wrap items-center justify-center gap-4 mt-2">
+            <button id="rewind-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-lg text-sm">快退秒</button>
+            <button id="forward-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-lg text-sm">快进秒</button>
+            <button id="long-rewind-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-lg text-sm">长快退(分)</button>
+            <button id="long-forward-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded-lg text-sm">长快进(分)</button>
+          </div>
+        </div>
+
+        <!-- 标记按钮 -->
+        <div class="flex items-center justify-center gap-4 mt-4">
+          <button id="mark-start-btn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg">标记开始</button>
+          <button id="mark-end-btn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg">标记结束</button>
+          <button id="add-clip-btn" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg">添加片段</button>
+        </div>
+
+        <!-- 手动输入时间（格式 hhmmss 或 hh:mm:ss 的数字） -->
+        <div class="mt-4 flex justify-center gap-2 items-center">
+          <label class="font-semibold">手动输入:</label>
+          <input id="manual-start-time" type="text" placeholder="开始时间 (hhmmss)" class="p-2 border rounded-md text-sm text-center">
+          <span>-</span>
+          <input id="manual-end-time" type="text" placeholder="结束时间 (hhmmss)" class="p-2 border rounded-md text-sm text-center">
+        </div>
+      </div>
+
+      <!-- 剪辑片段列表 -->
+      <div id="clips-list-section" class="mb-6 hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-gray-800">已添加的剪辑片段</h2>
+          <button id="clear-all-clips-btn" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-sm">清除所有片段</button>
+        </div>
+        <div id="added-clips-list" class="space-y-2"></div>
+      </div>
+
+      <!-- 操作按钮与路径输入 -->
+      <div class="mt-8 flex justify-center gap-4">
+        <button id="generate-btn" class="bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg">生成 FFmpeg 指令</button>
+        <button id="copy-btn" class="bg-gray-800 hover:bg-gray-900 text-white py-3 px-6 rounded-lg">复制指令</button>
+      </div>
+      <div class="mt-4 flex items-center gap-2">
+        <label for="hostNameInput" class="text-gray-800 font-bold">主播名：</label>
+        <input id="hostNameInput" type="text" placeholder="填写主播名（例如：荔枝甜心）" aria-label="主播名" class="flex-1 p-2 border rounded-md text-sm">
+      </div>
+      <div class="mt-4 flex items-center gap-2">
+        <label class="text-gray-800 font-bold">视频文件目录:</label>
+        <input id="video-source-path-input" type="text" value="E:\下载" placeholder="例如：C:\Users\YourName\Videos" class="flex-1 p-2 border rounded-md text-sm">
+      </div>
+      <div class="mt-4 flex items-center gap-2">
+        <label class="text-gray-800 font-bold">输出目录:</label>
+        <input id="output-path-input" type="text" value="E:\下载\截取" placeholder="例如：C:\Users\YourName\Videos" class="flex-1 p-2 border rounded-md text-sm">
+      </div>
+
+      <!-- 指令输出 -->
+      <div class="mt-8">
+        <label class="block text-gray-700 font-bold mb-2">生成的指令：</label>
+        <textarea id="output-commands" readonly rows="10" class="w-full p-4 border rounded-lg text-sm bg-gray-50 text-gray-700"></textarea>
+        <p class="text-gray-500 text-sm mt-2">提示：将指令粘贴到终端（CMD/PowerShell）中执行。</p>
+      </div>
+
+      <!-- 简单提示弹窗（固定位置，初始隐藏通过透明度） -->
+      <div id="message-box" class="fixed bottom-4 right-4 bg-gray-800 text-white py-2 px-4 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 z-50">提示</div>
+    </div>
+  </div>
+
+  <!-- 视频悬浮窗口（浮动播放器） -->
+  <div id="video-float-window" class="hidden rounded-xl overflow-hidden shadow-2xl">
+    <div class="relative w-full h-full max-w-full max-h-screen">
+      <video id="video-player" controls preload="metadata"></video>
+      <div id="drag-handle"></div>
+      <div id="resize-handle"></div>
+      <button id="close-float-btn" class="control-btn text-white text-3xl bg-gray-800 bg-opacity-50 hover:bg-opacity-75 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

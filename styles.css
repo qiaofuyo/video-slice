@@ -1,0 +1,76 @@
+/* 基本字体与小调整（保留 Tailwind 作为主样式） */
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+/* 隐藏文件 input 已在 HTML 中使用 hidden 属性 */
+
+/* 浮动视频窗口样式（便于用户拖动/缩放） */
+#video-float-window {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  /* 只让控件可交互（控件有 pointer-events:auto） */
+  transition: opacity .2s ease;
+  resize: both;
+  overflow: hidden;
+}
+
+/* 手柄与控件需要可交互 */
+#drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 90%;
+  cursor: move;
+  z-index: 12;
+  pointer-events: auto;
+  background: transparent;
+}
+
+#resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: se-resize;
+  z-index: 14;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, .4);
+  border-radius: 4px 0 4px 0;
+}
+
+.control-btn {
+  position: absolute;
+  top: 5px;
+  z-index: 13;
+  pointer-events: auto;
+  text-shadow: 0 0 5px rgba(0, 0, 0, .5);
+}
+
+#close-float-btn {
+  right: 5px;
+}
+
+/* 拖拽高亮 */
+#drop-zone.drag-over {
+  border-color: #3b82f6;
+  background: #e0f2fe;
+}
+
+/* 确保 video 控件可交互 */
+#video-player {
+  pointer-events: auto;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 播放文件高亮 */
+#file-list .playing {
+  background-color: #dbeafe;
+  border-color: #60a5fa;
+}
