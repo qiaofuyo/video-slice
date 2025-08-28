@@ -546,6 +546,7 @@
       tempStartTime = tempEndTime = null;
       manualStartTimeInput.value = '';
       manualEndTimeInput.value = '';
+      outputCommands.value = ''
 
       renderClipsList();
       showMessage(`已添加片段：${currentFile.name} (${formatTime(startSec)} - ${formatTime(endSec)})`);
@@ -654,10 +655,12 @@
           if (removed.outputHost === clip.outputHost && removed.fileDate === clip.fileDate) {
             clip.idx--;
             clip.clipName = clip.outputHost + '_' + clip.fileDate + '_' + clip.idx;
+            clip.outputFileName = clip.clipName + '.' + clip.ext
           }
         }
         renderClipsList();
         showMessage('已删除片段');
+        outputCommands.value = ''
       }
     });
 
@@ -679,6 +682,8 @@
           clips[idx].outputFileName = `${base}.${extInp.value}`;
         }
       }
+
+      outputCommands.value = ''
     });
 
     /******************************************************************
