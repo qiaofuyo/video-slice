@@ -14,8 +14,7 @@ const path = require('path');
 const PORT = 8000;
 
 // 定义静态文件目录和视频文件目录的绝对路径。
-// 注意：这些路径是硬编码的，需要根据实际部署环境修改。
-const PUBLIC_DIR = path.join('E:', '下载', '视频剪切');
+const PUBLIC_DIR = path.join(__dirname);
 const VIDEOS_DIR = path.join('E:', '下载');
 
 // MIME 类型映射表，用于正确设置响应头中的 Content-Type。
@@ -105,8 +104,9 @@ const server = http.createServer((req, res) => {
 
   // 根据 URL 前缀路由请求。
   // 如果 URL 以 "/videos/" 开头，则从 VIDEOS_DIR 服务文件。
+  // 当下前端视频播放确实没有经过服务器
   if (urlPath.startsWith('/videos/')) {
-    const rel = urlPath.replace(/^\/videos\//, '');
+    const rel = urlPath.replace(/^\/videos\//, '');  // 取路径 /快手直播/荔枝甜心/荔枝甜心_2025-08-29_23-33-57_001.mp4
     const filePath = path.join(VIDEOS_DIR, rel);
     return sendFile(req, res, filePath);
   }

@@ -1,21 +1,19 @@
 @echo off
-REM `REM` ÊÇÅú´¦Àí½Å±¾µÄ×¢ÊÍ±ê¼Ç¡£
-REM ÕâÊÇÒ»¸öÆô¶¯½Å±¾£¬Ö¼ÔÚ×Ô¶¯»¯Æô¶¯ Node.js ·þÎñÆ÷ºÍ´ò¿ªä¯ÀÀÆ÷µÄ¹ý³Ì¡£
+chcp 65001
 
-REM 1. Æô¶¯ÄãµÄ·þÎñÆ÷¡£
-REM `start cmd /k` ÃüÁî»áÔÚÒ»¸öÐÂµÄ CMD ´°¿ÚÖÐÖ´ÐÐºóÐøÃüÁî£¬²¢ÇÒÖ´ÐÐÍê±Ïºó´°¿Ú²»»á¹Ø±Õ¡£
-REM ÕâÔÊÐíÓÃ»§ÔÚ·þÎñÆ÷ÔËÐÐÆÚ¼ä£¬ÈÔÈ»¿ÉÒÔ¿´µ½·þÎñÆ÷µÄÈÕÖ¾Êä³ö¡£
-start cmd /k "node E:\ÏÂÔØ\ÊÓÆµ¼ôÇÐ\server.js"
+REM è‡ªåŠ¨åŒ–å¯åŠ¨ Node.js æœåŠ¡å™¨å’Œæ‰“å¼€æµè§ˆå™¨çš„è¿‡ç¨‹ã€‚
 
-REM 2. µ÷ÓÃ PowerShell ½Å±¾À´¼ì²â¶Ë¿Ú£¬µÈ´ý·þÎñÆ÷Æô¶¯³É¹¦¡£
+REM 1. å¯åŠ¨ä½ çš„æœåŠ¡å™¨ã€‚
+REM `start cmd /k` å‘½ä»¤ä¼šåœ¨ä¸€ä¸ªæ–°çš„ CMD çª—å£ä¸­æ‰§è¡ŒåŽç»­å‘½ä»¤ï¼Œå¹¶ä¸”æ‰§è¡Œå®Œæ¯•åŽçª—å£ä¸ä¼šå…³é—­ã€‚
+REM è¿™å…è®¸ç”¨æˆ·åœ¨æœåŠ¡å™¨è¿è¡ŒæœŸé—´ï¼Œä»ç„¶å¯ä»¥çœ‹åˆ°æœåŠ¡å™¨çš„æ—¥å¿—è¾“å‡ºã€‚
+start cmd /k "node %~dp0\server.js"
+
+REM 2. è°ƒç”¨ PowerShell è„šæœ¬æ¥æ£€æµ‹ç«¯å£ï¼Œç­‰å¾…æœåŠ¡å™¨å¯åŠ¨æˆåŠŸã€‚
 echo Waiting for server to become available...
-REM PowerShell ÊÇ Windows 10/11 Ä¬ÈÏ×Ô´øµÄ½Å±¾ÓïÑÔ¡£
-REM `Invoke-WebRequest -Method Head` ·¢ËÍÒ»¸ö HEAD ÇëÇó£¬ÕâÊÇÒ»ÖÖÇáÁ¿¼¶µÄÇëÇó£¬Ö»»ñÈ¡ÏìÓ¦Í·¶ø²»ÏÂÔØÄÚÈÝ¡£
-REM `-ErrorAction Stop` È·±£Èç¹ûÇëÇóÊ§°Ü£¨ÀýÈç£¬·þÎñÆ÷Î´Æô¶¯£©£¬½Å±¾»áÅ×³ö´íÎó²¢½øÈë catch ¿é¡£
-REM `do {} until ($available)` Ñ­»·»áÃ¿Ãë³¢ÊÔÒ»´Î£¬Ö±µ½·þÎñÆ÷³É¹¦ÏìÓ¦¡£
+REM `Invoke-WebRequest -Method Head` å‘é€ä¸€ä¸ª HEAD è¯·æ±‚ï¼Œè¿™æ˜¯ä¸€ç§è½»é‡çº§çš„è¯·æ±‚ï¼ŒåªèŽ·å–å“åº”å¤´è€Œä¸ä¸‹è½½å†…å®¹ã€‚
+REM `-ErrorAction Stop` ç¡®ä¿å¦‚æžœè¯·æ±‚å¤±è´¥ï¼ˆä¾‹å¦‚ï¼ŒæœåŠ¡å™¨æœªå¯åŠ¨ï¼‰ï¼Œè„šæœ¬ä¼šæŠ›å‡ºé”™è¯¯å¹¶è¿›å…¥ catch å—ã€‚
+REM `do {} until ($available)` å¾ªçŽ¯ä¼šæ¯ç§’å°è¯•ä¸€æ¬¡ï¼Œç›´åˆ°æœåŠ¡å™¨æˆåŠŸå“åº”ã€‚
 powershell -command "$available = $false; do { try { $response = Invoke-WebRequest -Uri 'http://localhost:8000' -Method Head -ErrorAction Stop; $available = $true; echo Server is up! } catch { echo .; Start-Sleep -Seconds 1 } } until ($available)"
 
-REM 3. Ò»µ©¼ì²â³É¹¦£¬½Å±¾»á¼ÌÐøÖ´ÐÐ£¬´ò¿ªä¯ÀÀÆ÷¡£
-REM `start` ÃüÁîÓÃÓÚ´ò¿ªÒ»¸öÎÄ¼þ»ò URL¡£
-REM ÕâÈ·±£ÁËä¯ÀÀÆ÷Ö»ÔÚ·þÎñÆ÷ÍêÈ«¾ÍÐ÷ºó²Å´ò¿ª£¬±ÜÃâÁËÓÃ»§¿´µ½¡°ÎÞ·¨Á¬½Ó¡±µÄ´íÎóÒ³Ãæ¡£
+REM 3. ä¸€æ—¦æ£€æµ‹æˆåŠŸï¼Œè„šæœ¬ä¼šç»§ç»­æ‰§è¡Œï¼Œæ‰“å¼€æµè§ˆå™¨ã€‚
 start http://localhost:8000

@@ -124,7 +124,8 @@
       try { URL.revokeObjectURL(state.currentObjectURL); } catch (e) { }
       state.currentObjectURL = null;
     }
-    const url = URL.createObjectURL(blobOrFile);
+    const url = URL.createObjectURL(blobOrFile);  // 视频播不经服务端
+    // const url = `/videos/快手直播/荔枝甜心/${encodeURIComponent(blobOrFile.name)}`;  // 视频播放经由服务端
     state.currentObjectURL = url;
     return url;
   };
