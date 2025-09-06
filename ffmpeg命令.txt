@@ -1,0 +1,13 @@
+截取：
+ffmpeg -loglevel quiet -ss 00:00:00 -to 00:00:00 -i "荔枝甜心-快手直播.flv" -c copy "截取/快手_荔枝甜心/1.mp4"
+ffmpeg -loglevel quiet -ss 0 -to 45:50 -i "猫女骑_2025-08-05_21-49-55_000.mp4" -c copy "../../截取/抖音_猫女骑_Catwoman_Mia/12.mp4"
+
+生成预览图像：
+ffmpeg -loglevel quiet -i "紫嫣妹妹＠-快手直播_2.flv" -vf "fps=1/60"  -q:v 31 "截取/快手_紫嫣妹妹_ziyan666/previews_%03d.jpg"
+
+合并（参数相同）：
+创建一个 mylist.txt，内容为：
+file 'input1.flv'
+file 'path/to/input2.mp4'
+file 'another video.flv'
+执行：ffmpeg -f concat -safe 0 -i mylist.txt -c copy output.mp4
