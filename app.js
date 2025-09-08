@@ -16,7 +16,8 @@
     mpegtsPlayer: null,        // 若使用 mpegts.js 播放器则放在此
     currentClipEndTime: null,  // 当播放片段时，保存结束秒数用于 timeupdate 检查
     tempStartTime: null,       // 临时开始时间（秒）
-    tempEndTime: null          // 临时结束时间（秒）
+    tempEndTime: null,         // 临时结束时间（秒）
+    rotateDeg: 0               // 记录当前旋转角度，0, 90, 180, 270
   };
 
   // 根据 id 获取 DOM，供后面复用
@@ -30,6 +31,7 @@
   const videoFloatWindow = $('video-float-window');
   const dragHandle = $('drag-handle');
   const resizeHandle = $('resize-handle');
+  const rotateBtn = $('rotate-btn');
   const closeFloatBtn = $('close-float-btn');
   const videoPlayer = $('video-player');
   const markStartBtn = $('mark-start-btn');
@@ -313,6 +315,21 @@
       showMessage(`正在播放: ${state.currentFile.name}`);
       videoPlayer.play().catch(() => { });
     });
+  };
+
+  // 旋转视频窗口
+  const rotateVideo = () => {
+    if (!videoPlayer || !videoPlayer.src) {
+      showMessage('请先播放一个视频');
+      return;
+    }
+    // 每次点击旋转90度
+    state.rotateDeg += 90;
+    videoFloatWindow.style.transform = `rotate(${state.rotateDeg}deg)`;
+    
+    centerVideoWindow();
+    savePlayerState();
+    showMessage(`视频已旋转 90 度`);
   };
 
   const stopAndHidePlayer = () => {
@@ -763,6 +780,9 @@
     });
     if (!cleanup) return;
   });
+
+  // 为旋转按钮绑定事件监听器
+  rotateBtn && rotateBtn.addEventListener('click', rotateVideo);
 
   // 关闭按钮：停止并隐藏播放器
   closeFloatBtn && closeFloatBtn.addEventListener('click', stopAndHidePlayer);

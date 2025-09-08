@@ -12,9 +12,13 @@ body {
   z-index: 50;
   pointer-events: none;
   /* 只让控件可交互（控件有 pointer-events:auto） */
-  transition: opacity .2s ease;
+  /* transition: opacity .2s ease; */
   resize: both;
   overflow: hidden;
+
+  /* 旋转 */
+  /* object-fit: contain; 关键：确保视频画面在容器内按比例显示，不被拉伸 */
+  transition: transform 0.3s ease;
 }
 
 /* 手柄与控件需要可交互 */
@@ -53,6 +57,10 @@ body {
 
 #close-float-btn {
   right: 5px;
+}
+
+#rotate-btn {
+  right: 48px;
 }
 
 /* 拖拽高亮 */
