@@ -736,18 +736,53 @@
   // 拖动句柄：移动悬浮窗口
   dragHandle && dragHandle.addEventListener('mousedown', (e) => {
     e.preventDefault();
-    if (e.button !== 0) return;
+    if (e.button !== 0) return; // 只响应鼠标左键
+
+    // 获取视频浮动窗口的初始位置和尺寸。
+    // getBoundingClientRect() 返回一个 DOMRect 对象，它提供了元素相对于视口的大小和位置。
     const rect = videoFloatWindow.getBoundingClientRect();
-    const { left: initLeft, top: initTop, width, height } = rect;
+
+    // initLeft：窗口在按下鼠标瞬间，其左边缘距离视口左边缘的距离（px）。
+    // initTop：窗口在按下鼠标瞬间，其上边缘距离视口上边缘的距离（px）。
+    // width：窗口旋转后的宽度（px）。
+    // height：窗口旋转后的高度（px）。
+    let { left: initLeft, top: initTop, width, height } = rect;
+
+    // 记录鼠标按下瞬间的初始全局坐标。
+    // clientX：鼠标指针相对于浏览器视口（viewport）的水平坐标。
+    // clientY：鼠标指针相对于浏览器视口（viewport）的垂直坐标。
     const startX = e.clientX, startY = e.clientY;
+
+    // 调用 startInteraction 函数开始拖拽交互。
+    // 该函数会添加全局的 mousemove 和 mouseup 监听器，并在交互结束时自动清理。
     const cleanup = startInteraction({
+      // onMove：当鼠标移动时执行的回调函数。
       onMove: (ev) => {
-        const dx = ev.clientX - startX, dy = ev.clientY - startY;
-        let newLeft = initLeft + dx, newTop = initTop + dy;
-        const maxLeft = Math.max(0, window.innerWidth - width);
-        const maxTop = Math.max(0, window.innerHeight - height);
-        newLeft = Math.max(0, Math.min(newLeft, maxLeft));
-        newTop = Math.max(0, Math.min(newTop, maxTop));
+        // 计算鼠标在移动过程中的总水平和垂直位移。
+        // dx (delta x)：鼠标从按下瞬间到当前位置的水平移动距离。
+        // dy (delta y)：鼠标从按下瞬间到当前位置的垂直移动距离。
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+
+        let newLeft, newTop;
+        newLeft = initLeft + dx;
+        newTop = initTop + dy;
+
+        // 边界限制：确保窗口不会拖出浏览器视口。
+        // window.innerWidth：浏览器视口的当前宽度。
+        // window.innerHeight：浏览器视口的当前高度。
+        const maxLeft = Math.max(0, window.innerWidth - width);  // 右边壁
+        const maxTop = Math.max(0, window.innerHeight - height);  // 底边壁
+        newLeft = Math.max(0, Math.min(newLeft, maxLeft));  // 0 <= newLeft <= 右边壁
+        newTop = Math.max(0, Math.min(newTop, maxTop));  // 0 <= newTop <= 底边壁
+
+        // 更新元素的 style.left 和 style.top 属性来移动窗口。
+        // 这里更新的是元素在未旋转时的 DOM 布局位置，所以需要进行偏移。
+        if ([90, -90, 270, -270].includes(state.rotateDeg % 360)) {
+          const offsetLeft = (videoFloatWindow.offsetHeight - videoFloatWindow.offsetWidth) / 2;
+          newLeft += offsetLeft;
+          newTop -= offsetLeft;
+        }
         videoFloatWindow.style.left = `${Math.round(newLeft)}px`;
         videoFloatWindow.style.top = `${Math.round(newTop)}px`;
       }
