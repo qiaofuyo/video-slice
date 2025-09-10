@@ -17,7 +17,8 @@
     currentClipEndTime: null,  // 当播放片段时，保存结束秒数用于 timeupdate 检查
     tempStartTime: null,       // 临时开始时间（秒）
     tempEndTime: null,         // 临时结束时间（秒）
-    rotateDeg: 0               // 记录当前旋转角度，0, 90, 180, 270
+    rotateDeg: 0,              // 记录视频窗口当前旋转角度，0, 90, 180, 270
+    isResizing: false          // 视频窗口是否在缩放
   };
 
   // 根据 id 获取 DOM，供后面复用
@@ -30,7 +31,7 @@
   const videoPlayerSection = $('video-player-section');
   const videoFloatWindow = $('video-float-window');
   const dragHandle = $('drag-handle');
-  const resizeHandle = $('resize-handle');
+  const resizeHandle = document.querySelector('#video-float-window.resize-handle');
   const rotateBtn = $('rotate-btn');
   const closeFloatBtn = $('close-float-btn');
   const videoPlayer = $('video-player');
@@ -720,6 +721,7 @@
     const moveHandler = (ev) => onMove(ev);
     const upHandler = () => cleanup();
     function cleanup() {
+      state.isResizing = false;
       window.removeEventListener('mousemove', moveHandler);
       window.removeEventListener('mouseup', upHandler);
       window.removeEventListener('blur', upHandler);
@@ -792,18 +794,28 @@
 
   // 缩放句柄：水平拖动改变宽度，并按视频长宽比计算高度
   resizeHandle && resizeHandle.addEventListener('mousedown', (e) => {
+    const direction = getBorderDirection(e);
+    if (!direction) return;  // 鼠标不在边框上，不进行拖拽
+
     e.preventDefault();
     if (e.button !== 0) return;
-    const rect = videoFloatWindow.getBoundingClientRect();
+
+    state.isResizing = true;
+
     const startX = e.clientX;
-    const initW = rect.width, initH = rect.height, left0 = rect.left, top0 = rect.top;
+    const rect = videoFloatWindow.getBoundingClientRect();
+    const { width: initW, height: initH, left: left0, top: top0 } = rect;
     const aspect = (videoPlayer && videoPlayer.videoWidth && videoPlayer.videoHeight) ? (videoPlayer.videoWidth / videoPlayer.videoHeight) : (initW / initH);
     const minSize = 200;
     const cleanup = startInteraction({
       onMove: (ev) => {
+        if (!state.isResizing) return;
+
         const dx = ev.clientX - startX;
+
         let newW = Math.max(minSize, initW + dx);
         let newH = newW / aspect;
+
         const maxW = Math.max(0, window.innerWidth - left0);
         const maxH = Math.max(0, window.innerHeight - top0);
         if (newW > maxW) { newW = maxW; newH = newW / aspect; }
@@ -814,6 +826,44 @@
       }
     });
     if (!cleanup) return;
+  });
+
+  /**
+   * 判断鼠标是否在边框上
+   * @param {MouseEvent} e - 鼠标事件对象
+   * @param {getBoundingClientRect} rect - 相对于视口的坐标位置
+   * @returns {string} - 鼠标所在的边框方向，如果不在则返回 null
+   */
+  function getBorderDirection(e) {
+    const borderSize = window.getComputedStyle(resizeHandle).borderWidth.split('px');
+    const rect = resizeHandle.getBoundingClientRect();
+    const atTop = e.clientY - rect.top < borderSize;
+    const atBottom = rect.bottom - e.clientY < borderSize;
+    const atLeft = e.clientX - rect.left < borderSize;
+    const atRight = rect.right - e.clientX < borderSize;
+
+    if (atTop && atLeft) return 'top-left';
+    if (atTop && atRight) return 'top-right';
+    if (atBottom && atLeft) return 'bottom-left';
+    if (atBottom && atRight) return 'bottom-right';
+    if (atTop) return 'top';
+    if (atBottom) return 'bottom';
+    if (atLeft) return 'left';
+    if (atRight) return 'right';
+
+    return null;
+  }
+
+  // 监听鼠标在 div 上的移动，改变光标样式
+  resizeHandle && resizeHandle.addEventListener('onpointerover', (e) => {
+    if (state.isResizing) return;
+
+    const direction = getBorderDirection(e);
+    // 移除光标样式类
+    resizeHandle.classList.remove(`resizing-${direction}`);
+    if (direction) {
+      resizableDiv.classList.add(`resizing-${direction}`);
+    }
   });
 
   // 为旋转按钮绑定事件监听器

@@ -10,16 +10,35 @@ body {
 #video-float-window {
   position: fixed;
   z-index: 50;
+  
   pointer-events: none;
-  /* 只让控件可交互（控件有 pointer-events:auto） */
-  /* transition: opacity .2s ease; */
-  resize: both;
   overflow: hidden;
 
   /* 旋转 */
   /* object-fit: contain; 关键：确保视频画面在容器内按比例显示，不被拉伸 */
   transition: transform 0.3s ease;
 }
+
+/* 拖拽 */
+#video-float-window.resize-handle {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  resize: both;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+#video-float-window.resize-handle:hover {
+  cursor: default; /* 默认光标，在内部不改变 */
+}
+/* 改变光标样式，提示用户可以拖拽 */
+#video-float-window.resize-handle.resizing-left { cursor: ew-resize; }
+#video-float-window.resize-handle.resizing-right { cursor: ew-resize; }
+#video-float-window.resize-handle.resizing-top { cursor: ns-resize; }
+#video-float-window.resize-handle.resizing-bottom { cursor: ns-resize; }
+#video-float-window.resize-handle.resizing-top-left { cursor: nwse-resize; }
+#video-float-window.resize-handle.resizing-top-right { cursor: nesw-resize; }
+#video-float-window.resize-handle.resizing-bottom-left { cursor: nesw-resize; }
+#video-float-window.resize-handle.resizing-bottom-right { cursor: nwse-resize; }
 
 /* 手柄与控件需要可交互 */
 #drag-handle {
@@ -32,19 +51,6 @@ body {
   z-index: 12;
   pointer-events: auto;
   background: transparent;
-}
-
-#resize-handle {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 20px;
-  height: 20px;
-  cursor: se-resize;
-  z-index: 14;
-  pointer-events: auto;
-  background: rgba(0, 0, 0, .4);
-  border-radius: 4px 0 4px 0;
 }
 
 .control-btn {
