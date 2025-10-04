@@ -56,6 +56,7 @@
   const manualStartTimeInput = $('manual-start-time');
   const manualEndTimeInput = $('manual-end-time');
   const clearAllClipsBtn = $('clear-all-clips-btn');
+  const anchorDatalist = $('anchor-datalist');
 
   /* ============================
    工具函数（pure utilities）
@@ -190,13 +191,13 @@
         }, {
           enableWorker: true,
           enableStashBuffer: true,
-          stashInitialSize: 384 * 1024 * 10,
+          stashInitialSize: 2000 * 1024 * 10,  // 20MB
           lazyLoad: true,
           lazyLoadMaxDuration: 10 * 60,
-          lazyLoadRecoverDuration: 3 * 60,
+          lazyLoadRecoverDuration: 8 * 60,
           autoCleanupSourceBuffer: true,
-          autoCleanupMinBackwardDuration: 2 * 60,
-          autoCleanupMaxBackwardDuration: 5 * 60
+          autoCleanupMinBackwardDuration: 5 * 60,
+          autoCleanupMaxBackwardDuration: 10 * 60
         });
         state.mpegtsPlayer.attachMediaElement(videoPlayer);
         state.mpegtsPlayer.load();
@@ -395,6 +396,39 @@
   };
 
   window.addEventListener('resize', debounce(centerVideoWindow, 150));
+
+  /* ============================
+   功能：加载主播列表并填充 datalist
+  ============================ */
+  const loadAnchorDatalist = async () => {
+    if (!anchorDatalist) return;
+    try {
+      // 1. 获取 anchor_list.json 文件
+      const response = await fetch('anchor_list.json');
+      if (!response.ok) {
+        console.error('Failed to fetch anchor_list.json', response.statusText);
+        return;
+      }
+      const anchorList = await response.json();
+
+      let optionsHtml = '';
+      // 2. 遍历列表，生成 datalist 选项
+      anchorList.forEach(anchor => {
+        // 格式: "快手_${user_name}_${user_id}"
+        const user_name = anchor.name ? anchor.name.replace(/"/g, '').trim() : '';
+        const user_id = anchor.id ? anchor.id.replace(/"/g, '').trim() : '';
+        const value = `快手_${user_name}_${user_id}`;
+        optionsHtml += `<option value="${value}">`;
+      });
+
+      // 3. 填充 datalist
+      anchorDatalist.innerHTML = optionsHtml;
+      showMessage(`已加载 ${anchorList.length} 个主播名选项。`);
+    } catch (e) {
+      console.error('Error loading anchor list:', e);
+      showMessage('加载主播列表失败。');
+    }
+  };
 
   /* ============================
    标记与添加剪辑
@@ -843,4 +877,6 @@
   // 不暴露任何全局变量（IIFE）
   init();
 
+  // 立即加载主播列表
+  loadAnchorDatalist();
 })(); // IIFE end
