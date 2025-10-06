@@ -1,4 +1,4 @@
-// app.js — 现代化重构版（含中文注释）
+// app.js
 // 要点：模块化封装、单一状态对象、事件委托、职责分离、尽量少的全局变量
 (() => {
   'use strict';
@@ -258,17 +258,19 @@
       const item = document.createElement('div');
       item.className = 'clip-item flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
       item.innerHTML = `
-        <div class="flex flex-col md:flex-row md:items-center md:space-x-4">
-          <span class="text-sm font-bold">${clip.fileName}</span>
-          <span class="text-sm text-gray-600">${clip.startTime} - ${clip.endTime}</span>
-          <div class="flex items-center gap-2">
-            <label class="text-xs">输出名称:</label>
-            <input class="output-name" data-index="${i}" value="${clip.clipName}" style="width:220px;padding:4px;border:1px solid #ddd;border-radius:4px;">
-            <span>.</span>
-            <input class="output-ext" data-index="${i}" value="${clip.ext}" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;">
+        <div class="flex flex-col md:flex-row md:items-center md:space-x-4 flex-1">
+          <div class="flex flex-col space-y-1 md:space-y-0 md:flex-row md:items-center md:space-x-4">
+            <span class="text-sm font-bold">${clip.fileName}</span>
+            <span class="text-sm text-gray-600">${clip.startTime} - ${clip.endTime}</span>
+          </div>
+          <div class="flex items-center gap-2 flex-1 mt-2 md:mt-0">
+            <label class="text-xs shrink-0">输出名称:</label>
+            <input class="output-name flex-1 p-1 border rounded-md text-sm" data-index="${i}" value="${clip.clipName}">
+            <span class="shrink-0">.</span>
+            <input class="output-ext w-16 p-1 mr-10 border rounded-md text-sm shrink-0" data-index="${i}" value="${clip.ext}">
           </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 shrink-0">
           <button class="play-clip-btn bg-purple-500 text-white py-1 px-2 rounded text-xs" data-index="${i}">播放片段</button>
           <button class="delete-clip-btn bg-red-400 text-white py-1 px-2 rounded text-xs" data-index="${i}">删除</button>
         </div>
@@ -641,7 +643,7 @@
       const outputPath = `${oDir}\\${clip.outputFileName}`;
       // -ss -to 参数用来指定开始和结束时间，-c copy 保持流拷贝（快速、无转码）
       return `ffmpeg -loglevel quiet -ss "${clip.startTime}" -to "${clip.endTime}" -i "${inputPath}" -c copy "${outputPath}"`;
-    }).join('\n');
+    }).join('\n') + '\n';
 
     outputCommands.value = cmds;
   });
@@ -869,6 +871,7 @@
    初始化函数：渲染初始界面、居中播放器
   ============================ */
   const init = () => {
+    loadAnchorDatalist();  // 立即加载主播列表
     renderFileList();
     renderClipsList();
     centerVideoWindow();
@@ -876,7 +879,4 @@
 
   // 不暴露任何全局变量（IIFE）
   init();
-
-  // 立即加载主播列表
-  loadAnchorDatalist();
 })(); // IIFE end
