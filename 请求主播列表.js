@@ -1,80 +1,109 @@
 /**
- * 这是一个示例函数，它包含了提供的所有 fetch 请求的执行和合并逻辑。
- * 假设这个函数将在支持 Promise 和 fetch API 的环境中运行。
+ * 顺序拉取并合并 authors（直到服务端返回 pcursor === "no_more"）
+ * 说明：第一次请求 pcursor = ""；随后每次用上一次响应的 pcursor 作为下一次请求的 pcursor。
+ *
+ * 注意：
+ * - 请确认 headers 中的 Cookie、kww 是否需要更新。
+ * - 提供了 maxIterations 防止无限循环（默认 200）。
  */
-async function fetchAndCombineKuaishouAuthors() {
-  // 1. 定义所有请求的分页游标（pcursor）
-  const pcursors = ["", "30", "61", "91", "121", "152", "183", "213", "243", "273"];
+import fs from "fs";
+async function fetchAndCombineKuaishouAuthorsSequential(maxIterations = 200) {
+  const url = "https://www.kuaishou.com/rest/v/relation/fol";
 
-  // 2. 封装单个 fetch 请求的配置
-  function createFetchPromise(pcursor) {
-    const url = "https://www.kuaishou.com/rest/v/relation/fol";
-    const config = {
-      "headers": {
-        "accept": "application/json",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "cache-control": "no-cache",
-        "content-type": "application/json",
-        // 请确保此 kww 仍然是有效的
-        "kww": "PnGU+9+Y8008S+nH0U+0mjPf8fP08f+98f+nLlwnrIP9+Sw/ZFGfzY+eGlGf+f+e4SGfbYP0QfGnLFwBLU80mYGAGUGfcMP/Z7+fb0wn8f8BclP0zjP0DM+e8f80rAG/pSPArE+e80P9chGA80+epj+/zYwBr98eGE+/LEGAGEGAWlG/YfP/Ll+Abf+0ZUG0p0+ePIGArEP0cl+AqAG/zS8c==",
-        "pragma": "no-cache",
-        "sec-ch-ua": "\"Google Chrome\";v=\"141\", \"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"141\"",
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": "\"Windows\"",
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin"
-      },
-      "referrer": "https://www.kuaishou.com/profile/3xgaiws3d3uy7dy",
-      "body": JSON.stringify({ "pcursor": pcursor, "ftype": 1 }),
-      "method": "POST",
-      "mode": "cors",
-      "credentials": "include"
-    };
+  const headers = {
+    "Accept": "application/json",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Content-Type": "application/json",
+    "Cookie": "",
+    "Origin": "https://www.kuaishou.com",
+    "Referer": "https://www.kuaishou.com/profile/",
+    "kww": "",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+  };
 
-    return fetch(url, config)
-      .then(response => {
-        if (!response.ok) {
-          // 如果状态码不是 2xx，抛出错误
-          throw new Error(`HTTP error! Status: ${response.status} for pcursor: ${pcursor}`);
-        }
-        // 解析 JSON
-        return response.json();
-      })
-      .catch(error => {
-        console.error(`Fetch failed for pcursor ${pcursor}:`, error);
-        // 确保在出错时返回一个具有空 authors 数组的对象，以便 Promise.all 不会中断
-        return { authors: [] };
+  let pcursor = "";  // 第一条请求的 pcursor
+  const combinedAuthors = [];
+  let iter = 0;
+
+  while (true) {
+    iter += 1;
+    if (iter > maxIterations) {
+      console.warn(`达到最大迭代次数 ${maxIterations}，停止请求以防死循环。`);
+      break;
+    }
+
+    const body = JSON.stringify({ pcursor, ftype: 1 });
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers,
+        body,
+        mode: "cors"
       });
+    } catch (err) {
+      console.error(`第 ${iter} 次请求网络错误：`, err);
+      break;
+    }
+
+    if (!response.ok) {
+      console.error(`第 ${iter} 次请求返回非 2xx 状态：${response.status}，停止。`);
+      break;
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (err) {
+      console.error(`第 ${iter} 次响应解析 JSON 失败：`, err);
+      break;
+    }
+
+    // 提取并拼接 authors（若不存在按空数组处理）
+    const authors = Array.isArray(data.authors) ? data.authors : [];
+    if (authors.length) {
+      combinedAuthors.push(...authors);
+    }
+
+    // 日志（便于调试）
+    console.log(`第 ${iter} 页：pcursor 响应 = ${String(data.pcursor)}, 本页 authors = ${authors.length}, 累计 = ${combinedAuthors.length}`);
+
+    // 检查 pcursor 字段（若为 "no_more" 则停止）
+    if (!("pcursor" in data)) {
+      console.warn("响应中不包含 pcursor 字段，停止请求。");
+      break;
+    }
+
+    if (data.pcursor === "no_more") {
+      console.log("服务端返回 pcursor === 'no_more'，分页结束。");
+      break;
+    }
+
+    // 为下一轮请求设定 pcursor
+    // 若 data.pcursor 非空字符串，则继续；否则也作为保护直接停止
+    if (typeof data.pcursor === "string" && data.pcursor.length > 0) {
+      pcursor = data.pcursor;
+    } else {
+      console.warn("pcursor 值异常（为空或非字符串），停止请求以防无限循环。");
+      break;
+    }
   }
 
-  // 3. 并发执行所有请求
-  const fetchPromises = pcursors.map(createFetchPromise);
-  let results;
-  try {
-    // Promise.all 等待所有请求完成，并保证结果顺序与 pcursors 一致
-    results = await Promise.all(fetchPromises);
-  } catch (e) {
-    console.error("Critical error during one of the fetch calls, stopping merge.", e);
-    return []; // 发生致命错误，返回空列表
-  }
-
-  // 4. ***核心：提取并拼接 'authors' 字段***
-  const combinedAuthorsList = results.reduce((accumulator, currentResult) => {
-    // 尝试从当前结果中获取 'authors' 数组，如果不存在则使用空数组 []
-    const authorsList = currentResult.authors || [];
-
-    // 使用 concat 拼接数组
-    return accumulator.concat(authorsList);
-  }, []);
-
-  // 5. 打印结果
-  console.log("所有请求结果已按序合并。");
-  console.log("合并后的用户总数:", combinedAuthorsList.length);
-  console.log("合并后的列表:", combinedAuthorsList);
-
-  return combinedAuthorsList;
+  console.log("所有页合并完成。合并后 authors 总数：", combinedAuthors.length);
+  return combinedAuthors;
 }
 
-// 调用函数执行所有请求和合并操作
-fetchAndCombineKuaishouAuthors();
+// 调用
+fetchAndCombineKuaishouAuthorsSequential().then(list => {
+  console.log('最终列表长度：', list.length);
+
+  // 将合并结果写入文件（漂亮缩进）
+  const OUTFILE = 'anchor_list.json';
+  fs.writeFileSync(OUTFILE, JSON.stringify(list, null, 2), { encoding: "utf8" });
+  console.log(`已写入 ${OUTFILE}，包含 authors 数量：`, list.length);
+}).catch(err => {
+  console.error("执行过程中发生错误：", err && err.message ? err.message : err);
+  // 发生错误时并不会立刻强制退出——Node 会在事件循环（pending I/O、定时器、未完成的 promise 等）执行完后自然退出
+  process.exitCode = 2;
+});
