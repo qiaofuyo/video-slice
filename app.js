@@ -406,7 +406,7 @@
     if (!anchorDatalist) return;
     try {
       // 1. 获取 anchor_list.json 文件
-      const response = await fetch('anchor_list.json');
+      const response = await fetch('/fetchAndWriteAuthors/anchor_list.json');
       if (!response.ok) {
         console.error('Failed to fetch anchor_list.json', response.statusText);
         return;

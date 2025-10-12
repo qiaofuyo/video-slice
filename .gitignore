@@ -1,2 +1,5 @@
 /.vscode
-anchor_list.json
+node_modules/
+/fetchAndWriteAuthors/anchor_list.json
+/fetchAndWriteAuthors/cookie.txt
+/fetchAndWriteAuthors/.env
