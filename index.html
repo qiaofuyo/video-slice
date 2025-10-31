@@ -5,11 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>视频切片指令生成器</title>
 
-  <!-- Tailwind CSS（快速布局） -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind CSS -->
+  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+  <script src="static/tailwind-3.4.17.js" defer></script>
 
   <!-- mpegts.js（用于播放 flv/ts/m2ts 等） -->
-  <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js" defer></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.8.0/dist/mpegts.min.js" defer></script> -->
+  <script src="static/mpegts-1.8.0.js" defer></script>
+
+  <script type="module" src="app.js"></script>
 
   <!-- 本地样式 -->
   <link rel="stylesheet" href="styles.css" />
@@ -122,7 +126,5 @@
       <button id="close-float-btn" class="control-btn text-white text-3xl bg-gray-800 bg-opacity-50 hover:bg-opacity-75 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
     </div>
   </div>
-
-  <script type="module" src="app.js"></script>
 </body>
 </html>
