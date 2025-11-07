@@ -127,25 +127,29 @@
       try { URL.revokeObjectURL(state.currentObjectURL); } catch (e) { }
       state.currentObjectURL = null;
     }
-    const url = URL.createObjectURL(blobOrFile);  // 视频播不经服务端
-    // const url = `/videos/快手直播/荔枝甜心/${encodeURIComponent(blobOrFile.name)}`;  // 视频播放经由服务端
+    // const url = URL.createObjectURL(blobOrFile);  // 视频播不经服务端
+    const safeEncode = (str) => encodeURIComponent(str).replace(/[!'()*~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    const url = `${window.location.origin}/videos/${safeEncode(blobOrFile.name)}`;  // 视频播放经由服务端
     state.currentObjectURL = url;
     return url;
   };
 
   const cleanupPlayer = () => {
     if (state.mpegtsPlayer) {
-      try { state.mpegtsPlayer.destroy(); } catch (e) { }
+      try {
+        state.mpegtsPlayer.unload();
+        state.mpegtsPlayer.destroy();
+      } catch (e) { }
       state.mpegtsPlayer = null;
     }
     if (state.currentObjectURL) {
-      try { URL.revokeObjectURL(state.currentObjectURL); } catch (e) { }
+      URL.revokeObjectURL(state.currentObjectURL);
       state.currentObjectURL = null;
     }
     try {
       videoPlayer.removeAttribute('src');
       videoPlayer.load();
-    } catch (e) { /* 忽略加载错误 */ }
+    } catch (e) { }
     state.currentFile = null;
     state.currentClipEndTime = null;
     renderFileList(); // 更新文件列表高亮状态
@@ -190,21 +194,21 @@
           url
         }, {
           enableWorker: true,
-          enableStashBuffer: true,
-          stashInitialSize: 2000 * 1024 * 10,  // 20MB
-          lazyLoad: true,
-          lazyLoadMaxDuration: 10 * 60,
-          lazyLoadRecoverDuration: 8 * 60,
+          enableStashBuffer: false,
+          stashInitialSize: 1024 * 1024 * 200,  // 200MB 初始缓冲
+          lazyLoad: false,
+          // lazyLoadMaxDuration: 60 * 15,
+          // lazyLoadRecoverDuration: 60 * 10,
           autoCleanupSourceBuffer: true,
-          autoCleanupMinBackwardDuration: 5 * 60,
-          autoCleanupMaxBackwardDuration: 10 * 60
+          autoCleanupMaxBackwardDuration: 60 * 10,  // 最多保留 10 分钟
+          autoCleanupMinBackwardDuration: 60 * 5,  // 清理后至少保留 5 分钟
         });
         state.mpegtsPlayer.attachMediaElement(videoPlayer);
         state.mpegtsPlayer.load();
         videoPlayer.addEventListener('loadedmetadata', function once() {
-          videoPlayer.removeEventListener('loadedmetadata', once);
-          if (typeof callbackOnReady === 'function') callbackOnReady();
-        }, { once: true });
+        videoPlayer.removeEventListener('loadedmetadata', once);
+        if (typeof callbackOnReady === 'function') callbackOnReady();
+      }, { once: true });
       } catch (e) {
         // 若 mpegts 创建失败则回退到原生播放
         console.warn('mpegts createPlayer failed, fallback to native', e);
@@ -675,18 +679,18 @@
    - seekVideo：相对跳转当前时间，自动限制边界（0 ~ duration）
    - 绑定按钮及键盘快捷键（Space 播放/暂停，左右方向键跳转）
   ============================ */
-  const seekVideo = (seconds) => {
+  const seekVideo = debounce((seconds) => {
     if (!videoPlayer.src || isNaN(videoPlayer.duration)) { showMessage('请先播放一个视频'); return; }
-    const newTime = videoPlayer.currentTime + seconds;
-    videoPlayer.currentTime = Math.max(0, Math.min(newTime, videoPlayer.duration));
+    videoPlayer.currentTime = Math.max(0, Math.min(videoPlayer.currentTime + seconds, videoPlayer.duration));;
+
     const direction = seconds > 0 ? '前进' : '后退';
     const unit = Math.abs(seconds) >= 60 ? '分钟' : '秒';
     const amount = Math.abs(seconds) >= 60 ? Math.abs(seconds) / 60 : Math.abs(seconds);
     showMessage(`${direction} ${amount} ${unit}`);
-  };
+  }, 100);  // 防抖：停止操作 100ms 后才执行最后一次操作
 
   forwardBtn && forwardBtn.addEventListener('click', () => {
-    const seconds = parseFloat(fastForwardSecondsInput.value) || 15;
+    const seconds = parseFloat(fastForwardSecondsInput.value) || 10;
     seekVideo(seconds);
   });
   rewindBtn && rewindBtn.addEventListener('click', () => {
@@ -694,11 +698,11 @@
     seekVideo(-seconds);
   });
   longForwardBtn && longForwardBtn.addEventListener('click', () => {
-    const minutes = parseFloat(longFastForwardMinutesInput.value) || 2;
+    const minutes = parseFloat(longFastForwardMinutesInput.value) || 1;
     seekVideo(minutes * 60);
   });
   longRewindBtn && longRewindBtn.addEventListener('click', () => {
-    const minutes = parseFloat(longFastBackwardMinutesInput.value) || 2;
+    const minutes = parseFloat(longFastBackwardMinutesInput.value) || 1;
     seekVideo(-minutes * 60);
   });
 
@@ -724,10 +728,10 @@
       return;
     }
 
-    const ffSec = parseFloat(fastForwardSecondsInput.value) || 15;
+    const ffSec = parseFloat(fastForwardSecondsInput.value) || 10;
     const fbSec = parseFloat(fastBackwardSecondsInput.value) || 5;
-    const longFfMin = parseFloat(longFastForwardMinutesInput.value) || 2;
-    const longFbMin = parseFloat(longFastBackwardMinutesInput.value) || 2;
+    const longFfMin = parseFloat(longFastForwardMinutesInput.value) || 1;
+    const longFbMin = parseFloat(longFastBackwardMinutesInput.value) || 1;
 
     if (e.ctrlKey) {
       if (e.key === 'ArrowRight') { e.preventDefault(); seekVideo(longFfMin * 60); }

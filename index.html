@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>视频切片指令生成器</title>
+  <!-- 消除图标 404 请求 -->
+  <link rel="icon" href="data:,">
 
   <!-- Tailwind CSS -->
   <!-- <script src="https://cdn.tailwindcss.com"></script> -->
@@ -44,7 +46,7 @@
           </p>
           <div class="flex flex-wrap items-center justify-center gap-4 mt-4">
             <div class="flex items-center gap-2"><label>快退秒:</label><input id="fast-backward-seconds" type="number" value="5" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
-            <div class="flex items-center gap-2"><label>快进秒:</label><input id="fast-forward-seconds" type="number" value="15" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
+            <div class="flex items-center gap-2"><label>快进秒:</label><input id="fast-forward-seconds" type="number" value="10" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
             <div class="flex items-center gap-2"><label>长快退(分):</label><input id="long-fast-backward-minutes" type="number" value="1" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
             <div class="flex items-center gap-2"><label>长快进(分):</label><input id="long-fast-forward-minutes" type="number" value="1" min="1" class="w-16 p-1 border rounded-md text-sm text-center"></div>
           </div>

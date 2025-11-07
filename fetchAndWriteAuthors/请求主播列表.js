@@ -19,7 +19,7 @@
 
 
 
-// import 'dotenv/config';  //  4： 环境变量，在 Node.js 启动时自动加载 .env 文件里的环境变量到 process.env 中
+import 'dotenv/config';  //  4： 环境变量，在 Node.js 启动时自动加载 .env 文件里的环境变量到 process.env 中，node --env-file=.env index.js 可代替
 import fs from "fs";
 import path from "path";
 import readline from "readline";

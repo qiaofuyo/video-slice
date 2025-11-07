@@ -15,7 +15,7 @@ const PORT = 8000;
 
 // 定义静态文件目录和视频文件目录的绝对路径。
 const PUBLIC_DIR = path.join(__dirname);
-const VIDEOS_DIR = path.join('E:', '下载');
+const VIDEOS_DIR = path.join('D:', '04_Temp', '直播', '快手直播');
 
 // MIME 类型映射表，用于正确设置响应头中的 Content-Type。
 const mime = {
@@ -104,10 +104,32 @@ const server = http.createServer((req, res) => {
 
   // 根据 URL 前缀路由请求。
   // 如果 URL 以 "/videos/" 开头，则从 VIDEOS_DIR 服务文件。
-  // 当下前端视频播放确实没有经过服务器
   if (urlPath.startsWith('/videos/')) {
-    const rel = urlPath.replace(/^\/videos\//, '');  // 取路径 /快手直播/荔枝甜心/荔枝甜心_2025-08-29_23-33-57_001.mp4
-    const filePath = path.join(VIDEOS_DIR, rel);
+    let rel = urlPath.replace(/^\/videos\//, '');
+
+    // 尝试多种解码策略，兼容错误编码的 URL
+    const decodeAttempts = [
+      rel,
+      decodeURIComponent(rel),
+      decodeURIComponent(decodeURIComponent(rel)), // 双重
+      rel.replace(/%20/g, ' ').replace(/%27/g, "'").replace(/%7E/g, '~'),
+    ];
+
+    let filePath = null;
+    for (const attempt of decodeAttempts) {
+      const candidate = path.join(VIDEOS_DIR, attempt);
+      if (fs.existsSync(candidate)) {
+        filePath = candidate;
+        break;
+      }
+    }
+
+    if (!filePath) {
+      res.statusCode = 404;
+      res.end('File not found');
+      return;
+    }
+    
     return sendFile(req, res, filePath);
   }
 
