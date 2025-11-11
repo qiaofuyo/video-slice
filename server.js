@@ -15,7 +15,7 @@ const PORT = 8000;
 
 // 定义静态文件目录和视频文件目录的绝对路径。
 const PUBLIC_DIR = path.join(__dirname);
-const VIDEOS_DIR = path.join('D:', '04_Temp', '直播', '快手直播');
+const VIDEOS_DIR = path.join('D:', '04_Temp', '直播');
 
 // MIME 类型映射表，用于正确设置响应头中的 Content-Type。
 const mime = {

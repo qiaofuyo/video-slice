@@ -1,9 +1,0 @@
-{
-  "name": "fetch-and-write-authors",
-  "version": "0.0.2",
-  "type": "module",
-  "main": "请求主播列表.js",
-  "dependencies": {
-    "dotenv": "^17.2.3"
-  }
-}

@@ -1,33 +1,29 @@
-// 请求主播列表.fetch.js
-// ESM
-// 说明：尽量少依赖，使用原生 fetch（Node 18+ 已内置）。
-// 若 Node 版本 < 18，请安装 node-fetch： npm i node-fetch
-//
-// 提供 cookie 的优先顺序（从外部读取 —— 不要硬编码）:
-// 1) 环境变量 COOKIE_STRING
-// 2) 文件路径由环境变量 COOKIE_FILE 指定（例如 ./cookie.txt）
-// 3) 交互式粘贴（stdin）
-// 可选：若确实需要 自动处理 Set-Cookie / 持久 cookie，请改用 tough-cookie + fetch-cookie
-//
-// PowerShell 用法示例：
-//  1： $env:KWW = 'PnGU+9+Y8008S+nH0U+0mjPf...'; $env:COOKIE_STRING = '_did=web_27533...'; node 请求主播列表.js
-//  2： $env:COOKIE_FILE='.\cookie.txt'; node 请求主播列表.js; Remove-Item Env:COOKIE_FILE
-//  3： node 请求主播列表.js --cookie '_did=web_27533...'
-//
-// console.log(process.env);
-// console.log(process.argv);
+/**
+ * 提供 cookie 的优先顺序（从外部读取，不要硬编码）:
+ * 1) 环境变量：
+ *    node --env-file=.env 请求主播列表.js
+ *    $env:COOKIE_STRING = '_did=web_27533...'; node 请求主播列表.js
+ * 2) 环境变量（文件路径）：
+ *    $env:COOKIE_FILE='.\cookie.txt'; node 请求主播列表.js; Remove-Item Env:COOKIE_FILE
+ * 
+ * 3) 命令行参数：
+ *    KEY=VAL：node 请求主播列表.js COOKIE_STRING='_did=web_27533...'
+ *    --cookie 'value'：node 请求主播列表.js --cookie '_did=web_27533...'
+ *    --cookie=value：node 请求主播列表.js --cookie='_did=web_27533...'
+ * 
+ * 4) 交互式粘贴（stdin）
+ * 
+ * 可选：若确实需要 自动处理 Set-Cookie / 持久 cookie，请改用 tough-cookie + fetch-cookie
+ */
 
-
-
-import 'dotenv/config';  //  4： 环境变量，在 Node.js 启动时自动加载 .env 文件里的环境变量到 process.env 中，node --env-file=.env index.js 可代替
-import fs from "fs";
-import path from "path";
-import readline from "readline";
+import fs from "node:fs";
+import path from "node:path";
+import readline from "node:readline";
 
 const BASE = "https://www.kuaishou.com";
 const API = "/rest/v/relation/fol";
 const OUTFILE = "anchor_list.json";
-const MAX_ITER = 200;
+const MAX_ITER = 20;
 const TIMEOUT_MS = 20000; // 超时保护
 
 // ---- 如果没有全局 fetch，则动态加载 node-fetch（仅当需要时） ----
@@ -45,7 +41,7 @@ async function ensureFetch() {
 }
 
 // ---- 从环境 / 文件 / stdin 获取 cookie 字符串（不硬编码） ----
-async function obtainCookieString() {
+async function getCookie() {
   // 1) 环境变量
   if (process.env.COOKIE_STRING && process.env.COOKIE_STRING.trim()) {
     console.log("使用环境变量 COOKIE_STRING（优先）。");
@@ -67,8 +63,6 @@ async function obtainCookieString() {
   }
 
   // 3) 命令行参数（方便做一次性调试，适合非敏感参数）
-  // COOKIE_STRING='_did=...'  或  --cookie '_did=...'
-  // 简单的 KEY=VAL 解析：
   for (let i = 2; i < process.argv.length; i++) {
     const arg = process.argv[i];
     console.log(`从命令行读取 cookie：${arg}`);
@@ -76,10 +70,11 @@ async function obtainCookieString() {
     if (arg.startsWith('COOKIE_STRING=')) {
       return arg.slice('COOKIE_STRING='.length);
     }
-    // 支持 --cookie 'value' 或 --cookie=value
+    // 支持 --cookie 'value'
     if (arg === '--cookie' && i + 1 < process.argv.length) {
       return process.argv[i + 1];
     }
+    // 支持 --cookie=value
     if (arg.startsWith('--cookie=')) {
       return arg.slice('--cookie='.length);
     }
@@ -113,12 +108,13 @@ async function fetchWithTimeout(url, opts = {}, timeout = TIMEOUT_MS) {
 
 // ---- 主函数：链式分页、合并 authors、写文件 ----
 async function fetchAndWriteAuthors() {
-  // 获取 cookie（不写入代码）
-  const cookieString = await obtainCookieString();
+  console.log(process.argv);
+  // 获取 cookie
+  const cookieString = await getCookie();
   if (!cookieString) {
     console.warn("未提供 cookie（COOKIE_STRING/COOKIE_FILE）。接口可能返回匿名数据或拒绝访问。");
   } else {
-    console.log("已获得 cookie（不会硬编码到源码）。长度：", cookieString.length);
+    console.log("已获得 cookie。长度：", cookieString.length);
   }
 
   // 可从环境读取签名头（例如 kww），以避免写死在代码里
@@ -128,7 +124,7 @@ async function fetchAndWriteAuthors() {
 
   let pcursor = "";
   const combinedAuthors = [];
-  let iter = 0;
+  let iter = 0; // 页数
 
   while (true) {
     iter++;
@@ -149,7 +145,7 @@ async function fetchAndWriteAuthors() {
       ...EXTRA_HEADERS
     };
 
-    // 仅当存在 cookieString 时才把 Cookie header 附上（不会硬编码）
+    // 仅当存在 cookieString 时才把 Cookie header 附上
     if (cookieString) {
       headers.Cookie = cookieString;
     }
