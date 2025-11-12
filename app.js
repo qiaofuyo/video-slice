@@ -127,9 +127,11 @@
       try { URL.revokeObjectURL(state.currentObjectURL); } catch (e) { }
       state.currentObjectURL = null;
     }
-    // const url = URL.createObjectURL(blobOrFile);  // 视频播不经服务端
-    const safeEncode = (str) => encodeURIComponent(str).replace(/[!'()*~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
-    const url = `${window.location.origin}/videos/${safeEncode(blobOrFile.name)}`;  // 视频播放经由服务端
+    // 视频播不经服务端
+    const url = URL.createObjectURL(blobOrFile);
+    // 视频播放经由服务端
+    // const safeEncode = (str) => encodeURIComponent(str).replace(/[!'()*~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    // const url = `${window.location.origin}/videos/${safeEncode(blobOrFile.name)}`;
     state.currentObjectURL = url;
     return url;
   };
